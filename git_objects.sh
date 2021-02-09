@@ -1,96 +1,89 @@
-get_parents() {
-	
-	content=$(git cat-file -p $1)
+#!/bin/bash
 
-	SAVEIFS=$IFS   # Save current IFS
-	IFS=$'\n'      # Change IFS to new line
-	content=($content) # split to array $content
-	IFS=$SAVEIFS   # Restore IFS
+get_parents() {
 
 	echo -n "\""parents\"": ["
-	for (( i=0; i<${#content[@]}; i++ ))
+	for (( i=0; i<${#arr[@]}; i++ ))
 		do
-			string=(${content[$i]})
-			next_string=(${content[$(($i+1))]})
-			if [ "${string[0]}" == "parent" ]; then
-				if [ "${next_string[0]}" == "parent" ]; then
-						echo -n "\""${string[@]:1}\"","
-				else
-					echo -n "\""${string[@]:1}\"""
-				fi
+			local line=( ${arr[i]} )
+			local next_line=( ${arr[$(($i+1))]} )
+			if [ "${line[0]}" == "parent" ] && [ "${next_line[0]}" == "parent" ]; then
+				echo -n "\""${line[@]:1}\"","
+			elif [ "${line[0]}" == "parent" ]; then
+				echo -n "\""${line[@]:1}\"""
+				break
 			fi
 		done
 	echo -n "],"
 	printf "\n"
+
 }
 
 
-commit_format() {
-	content=$(git cat-file -p $1)
+commit_content_to_json() {
 
-	SAVEIFS=$IFS   # Save current IFS
-	IFS=$'\n'      # Change IFS to new line
-	content=($content) # split to array $content
-	IFS=$SAVEIFS   # Restore IFS
+	local content=$(git cat-file -p $1)
+	local SAVEIFS=$IFS # save IFS
+	local IFS=$'\n'
+	local arr=( $content )
+	local IFS=' '
+	local arr_last_index=$((${#arr[@]}-1))
 
-	echo "{" >> $2
-	get_parents $1 >> $2
-	for (( i=0; i<${#content[@]}; i++ ))
+	local i
+	echo "{"
+	get_parents $1
+	for (( i=0; i<${#arr[@]}; i++ ))
 		do
-			string_array=(${content[$i]})
-			if [ "$i" != "$((${#content[@]}-1))" ]; then
-				if [ "${string_array[0]}" != "parent" ] && [ "${string_array[0]}" != "gpgsig" ]; then
-					echo "\""${string_array[0]}\"": \""${string_array[@]:1}\""," >> $2
-				else
-					echo "\""message\"": \"""${content[$((${#content[@]}-1))]}\"" >> $2
-					break
-				fi
-			else
-				echo "\""message\"": \""${string_array[@]}\""" >> $2
+			local line=( ${arr[i]} )
+			if [ "$i" != "$arr_last_index" ] && [ "${line[0]}" != "gpgsig" ] && [ "${line[0]}" != "Revert" ] && [ "${line[0]}" != "parent" ]; then
+				echo "\""${line[0]}\"": \""${line[@]:1}\"","
+			elif [ "$i" = "$arr_last_index" ]; then
+				echo "\""message\"": \""${line[@]}\"""
+			elif [ "${line[0]}" == "Revert" ]; then
+				echo "\""${line[0]}\"": ${line[@]:1},"
 			fi
 		done
 	echo "}"
+	local IFS=$SAVEIFS
 }
 
-tree_format() {
-	content=$(git cat-file -p $1)
+tree_content_to_json() {
 
-	SAVEIFS=$IFS   # Save current IFS
-	IFS=$'\n'      # Change IFS to new line
-	content=($content) # split to array $content
-	IFS=$SAVEIFS   # Restore IFS
+	local content=$(git cat-file -p $1)
+	local SAVEIFS=$IFS # save IFS
+	local IFS=$'\n'
+	local arr=( $content )
+	local IFS=$SAVEIFS
+	local arr_last_index=$((${#arr[@]}-1))
 
-	echo "[" >> $2
-	for (( i=0; i<${#content[@]}; i++ ))
+	echo "["
+	local i
+	for (( i=0; i<${#arr[@]}; i++ ))
 		do
-			string=(${content[$i]})
-			if [ "$i" != "$((${#content[@]}-1))" ]; then
-				echo "{\""perm\"":\""${string[0]}\"",\""type\"":\""${string[1]}\"",\""hash\"":\""${string[2]}\"",\""name\"":\""${string[3]}\""}," >> $2
+			local line=( ${arr[i]} )
+			if [ "$i" != "$arr_last_index" ]; then
+				echo "{\""perm\"":\""${line[0]}\"",\""type\"":\""${line[1]}\"",\""hash\"":\""${line[2]}\"",\""name\"":\""${line[3]}\""},"
 			else
-				echo "{\""perm\"":\""${string[0]}\"",\""type\"":\""${string[1]}\"",\""hash\"":\""${string[2]}\"",\""name\"":\""${string[3]}\""}" >> $2
+				echo "{\""perm\"":\""${line[0]}\"",\""type\"":\""${line[1]}\"",\""hash\"":\""${line[2]}\"",\""name\"":\""${line[3]}\""}"
 			fi
 		done
 	echo "]"
 }
 
-
 git cat-file --batch-check --batch-all-objects > objects.txt
-printf "{\""empty\"": {\n" > objects.json
-while IFS= read -r line; 
+
+printf "{\""empty\"": {" > objects.json
+while read -r line;
 	do
 		if [ "${line:41:1}" != "b" ]; then
-			printf "},\n"
-			printf "\""%s\"":{\n" ${line::40}
-			printf "\""type\"": \""%s\"",\n" $(git cat-file -t ${line::40})
-			printf "\""hash\"": \""%s\"",\n" ${line::40}
-			printf "\""content\"":"
-			if [ "${line:41:1}" == "t" ]; then
-				tree_format ${line::40} objects.json
-			elif [ "${line:41:1}" == "c" ]; then
-				commit_format ${line::40} objects.json
-			else
-				echo "somehing else" >> objects.json
+			printf "\n},\n\"""${line:0:40}\""":"
+			printf "{\n\"""type\""": \"""${line:41:1}\""",\n\"""hash\""": \"""${line:0:40}\""",\n"
+			printf "\"""content\""":"
+			if [ "${line:41:1}" == "c" ]; then
+				commit_content_to_json ${line:0:40}
+			elif [ "${line:41:1}" == "t" ]; then
+				tree_content_to_json ${line:0:40}
 			fi
 		fi
-	done < objects.txt >> objects.json
+	done < objects.txt >> objects.json 
 printf "}}" >> objects.json

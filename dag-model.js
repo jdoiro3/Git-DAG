@@ -6,8 +6,8 @@ class Repo {
 	}
 
 	get_commits() {
-		let commits = Object.values(this.objects).filter(obj => obj.type === "commit");
-		commits.forEach(obj => obj.id = obj.hash);
+		let commits = Object.values(this.objects).filter(obj => obj.type === "c");
+    commits.forEach(obj => obj.id = obj.hash);
 		return commits;
 	}
 
@@ -15,7 +15,8 @@ class Repo {
 		let links = []
 		let commits = this.get_commits();
 		for (let commit in commits) {
-			let parents = commits[commit].content.parents;
+      let parents = commits[commit].content.parents;
+      console.log(parents);
 			parents.forEach(p => links.push({source: commits[commit].hash, target: p}))
 		}
 		return links;
