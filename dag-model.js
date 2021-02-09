@@ -2,7 +2,6 @@ class Repo {
 
 	constructor(objects) {
 		this.objects = objects;
-		console.log(this.objects)
 	}
 
 	get_commits() {
@@ -16,7 +15,6 @@ class Repo {
 		let commits = this.get_commits();
 		for (let commit in commits) {
       let parents = commits[commit].content.parents;
-      console.log(parents);
 			parents.forEach(p => links.push({source: commits[commit].hash, target: p}))
 		}
 		return links;
@@ -34,8 +32,6 @@ function onChange(event) {
 function onReaderLoad(event){
     let obj = JSON.parse(event.target.result);
     let repo = new Repo(obj);
-    console.log(repo.get_commits());
-    console.log(repo.get_links());
     let gData = {
       nodes: repo.get_commits(),
       links: repo.get_links()
@@ -44,18 +40,18 @@ function onReaderLoad(event){
     const Graph = ForceGraph3D()
     (document.getElementById('3d-graph'))
       .graphData(gData)
-      .linkDirectionalArrowLength(3.5)
+      .nodeRelSize(8)
+      .numDimensions(3)
+      .dagMode("lr")
+      .nodeLabel(show_content)
+      .dagLevelDistance(10)
+      .linkDirectionalArrowLength(5.5)
       .linkDirectionalArrowRelPos(1)
       .linkCurvature(0.25)
-      .onNodeClick(function (node) {add_nodes(node.id)});
+      //.onNodeClick(function (node) {show_content(node)});
 
-    function add_nodes(this_id) {
-        const { nodes, links } = Graph.graphData();
-        const id = nodes.length;
-        Graph.graphData({
-            nodes: [...nodes, {id: id, t: "t"}],
-            links: [...links, { source: id, target: this_id}]
-        })
+    function show_content(node) {
+      return node.content.message+"\n"+node.content.committer
     }
 }
 
