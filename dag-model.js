@@ -2,20 +2,35 @@
 
 class Repo {
 
-  constructor(commits) {
+  constructor(commits, refs) {
     delete commits.empty;
+    delete refs.empty;
     for (const commit in commits) {
       commits[commit].id = commit;
+      commits[commit].type = "commit";
     }
 		this.commits = commits;
+    for (const ref in refs) {
+      refs[ref].id = ref;
+      refs[ref].type = "ref";
+    }
+    this.refs = refs;
 	}
 
-	get_commit(sha1) {
-    return this.commits[sha1];
+	get_commit(hash) {
+    return this.commits[hash];
+  }
+
+  get_ref_pointer(ref) {
+    return this.refs[ref].pointer
   }
 
   get_commits() {
     return Object.values(this.commits);
+  }
+
+  get_refs() {
+    return Object.values(this.refs);
   }
 
   get_parents(sha1) {
@@ -33,6 +48,9 @@ class Repo {
       let parents = this.get_parents(commit);
 			parents.forEach(p => links.push({source: commit, target: p}))
 		}
+    for (let ref in this.refs) {
+      links.push({source: ref, target: this.get_ref_pointer(ref)})
+    }
 		return links;
 	}
 
@@ -57,9 +75,9 @@ function show_merkel_tree(node) {
 
 function show_dag(data) {
 
-    let repo = new Repo(data.commits);
+    let repo = new Repo(data.commits, data.refs);
     let gData = {
-      nodes: repo.get_commits(),
+      nodes: repo.get_commits().concat(repo.get_refs()),
       links: repo.get_links()
     };
 
@@ -87,6 +105,17 @@ function show_dag(data) {
         );
         })
       .onNodeRightClick(show_merkel_tree)
+      .nodeThreeObject(node => {
+        if (node.type === "ref") {
+          const sprite = new SpriteText(node.id);
+          sprite.material.depthWrite = false; // make sprite background transparent
+          sprite.color = "white";
+          sprite.textHeight = 8;
+          return sprite;
+        } else {
+          return false;
+        }
+      });
 }
 
 async function get_data(repo_path) {
