@@ -11,7 +11,7 @@ params = cgi.FieldStorage()
 commit = params["commit"].value
 repo_path = params["repo"].value
 
-subprocess.run([path_to_bash, "./commit_tree.sh", repo_path, commit],
+subprocess.run([path_to_bash, "./treeish_to_json.sh", repo_path, commit],
                  cwd=r"./bash-scripts")
 
 with open(r"./data/tree.json", "r") as f:
