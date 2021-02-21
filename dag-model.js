@@ -3,13 +3,18 @@
 class Repo {
 
   constructor(commits, refs) {
+    // delete both empty objects. These are created in the bash scripts
+    // to have valid json
     delete commits.empty;
     delete refs.empty;
-    for (const commit in commits) {
-      commits[commit].id = commit;
-      commits[commit].type = "commit";
+    // give each commit more attributes
+    for (const hash in commits) {
+      commits[hash].id = hash;
+      commits[hash].type = "commit";
+      commits[hash].color = "yellow"
     }
 		this.commits = commits;
+    // give references more attributes
     for (const ref in refs) {
       refs[ref].id = ref;
       refs[ref].type = "ref";
@@ -21,16 +26,24 @@ class Repo {
     return this.commits[hash];
   }
 
-  get_ref_pointer(ref) {
-    return this.refs[ref].pointer
-  }
-
   get_commits() {
     return Object.values(this.commits);
   }
 
   get_refs() {
     return Object.values(this.refs);
+  }
+
+  get_ref_pointer(ref) {
+    ref = this.refs[ref];
+    if (ref.name === "HEAD") {
+      this.get_refs().forEach(another_ref => {
+        if (another_ref.pointer === ref.pointer && another_ref.name !== "HEAD") {
+          ref.pointer = another_ref.name;
+        }
+      })
+    }
+    return ref.pointer
   }
 
   get_parents(sha1) {
@@ -42,48 +55,66 @@ class Repo {
     }
   }
 
-	get_links() {
+	get_commit_links() {
 		let links = []
 		for (let commit in this.commits) {
       let parents = this.get_parents(commit);
-			parents.forEach(p => links.push({source: commit, target: p}))
+			parents.forEach(p => links.push({source: commit, target: p}));
 		}
     for (let ref in this.refs) {
-      links.push({source: ref, target: this.get_ref_pointer(ref)})
+      links.push({source: ref, target: this.get_ref_pointer(ref)});
     }
 		return links;
 	}
 
+  get_graph_data(node, tree_data) {
+    if (tree_data == null && node == null) {
+       return {nodes: this.get_commits().concat(this.get_refs()), links: this.get_commit_links()};
+    } else {
+      delete tree_data.objects.empty;
+      let root_tree = {type: "tree", hash: node.tree, id: node.tree, color: "green"};
+      let tree_objects = Object.values(tree_data.objects);
+      let tree_links = [];
+      tree_objects.forEach(obj => {
+        if (obj.type === "blob") {
+          obj.color = "orange";
+        } else {
+          obj.color = "green";
+        }
+        if (obj.parent == obj.id) {
+          tree_links.push({source: root_tree, target: obj});
+        } else {
+          tree_links.push({source: obj.parent, target: obj});
+        }
+      });
+      tree_links.push({source: node, target: root_tree});
+      tree_objects.push(root_tree);
+      let commits_and_tree_objects = this.get_commits().concat(this.get_refs()).concat(tree_objects);
+      let links = this.get_commit_links().concat(tree_links);
+      console.log({nodes: commits_and_tree_objects, links: links});
+      return {nodes: commits_and_tree_objects, links: links};
+    }
+  }
 }
 
 
 function show_content(node) {
-  return node.commmitter+","+node["committer date"]+" Subject:"+node.subject
-}
-
-function bar(data) {
-  console.log(data)
-}
-
-function show_merkel_tree(node) {
-  let commit = node.hash;
-  let path = document.getElementById("path").value;
-  fetch("http://localhost:8888/cgi-bin/get_tree.py?commit="+commit+"&repo="+path)
-  .then(response => response.json())
-  .then(data => console.log(data));
+  if (node.type === "commit") {
+    let style = "background-color:white; color:black; border-radius: 6px; padding:5px;"
+    return '<div style="'+style+'">Committer: '+node.committer+'<br>Date: '+node["committer date"]+'<br>'+node.subject+'</div>'
+  } else {
+    let style = "background-color:white; color:black; border-radius: 6px; padding:5px;"
+    return '<div style="'+style+'">Type: '+node.type+'<br>Hash: '+node.hash+'<br>ID: '+node.id+'</div>'
+  }
 }
 
 function show_dag(data) {
 
     let repo = new Repo(data.commits, data.refs);
-    let gData = {
-      nodes: repo.get_commits().concat(repo.get_refs()),
-      links: repo.get_links()
-    };
 
     const Graph = ForceGraph3D()
     (document.getElementById('3d-graph'))
-      .graphData(gData)
+      .graphData(repo.get_graph_data())
       .nodeRelSize(10)
       .numDimensions(3)
       .dagMode("lr")
@@ -104,7 +135,13 @@ function show_dag(data) {
           3000  // ms transition duration
         );
         })
-      .onNodeRightClick(show_merkel_tree)
+      .onNodeRightClick(node => {
+        let commit = node.hash;
+        let path = document.getElementById("path").value;
+        fetch("http://localhost:8888/cgi-bin/get_tree.py?commit="+commit+"&repo="+path)
+        .then(response => response.json())
+        .then(tree_data => Graph.graphData(repo.get_graph_data(node, tree_data)));
+      })
       .nodeThreeObject(node => {
         if (node.type === "ref") {
           const sprite = new SpriteText(node.id);
