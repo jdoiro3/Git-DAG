@@ -2,7 +2,7 @@
 
 Have you ever wanted to visualize your Git repo? Well, now you can.
 
-![](/images/dag.PNG?raw=true)
+![](/images/dag.png?raw=true)
 
 Right click a commit object to view the tree. Hovering your mouse over objects shows details about the object.
 
