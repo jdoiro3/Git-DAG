@@ -1,6 +1,6 @@
 # Git-DAG
 
-Have you ever wanted to visualize your Git repo? Well, now you can.
+Have you ever wanted to visualize your entire Git repo? Well, now you can.
 
 ![](/images/dag.png?raw=true)
 
@@ -8,9 +8,9 @@ Right click a commit object to view the tree. Hovering your mouse over objects s
 
 ![](/images/see-tree.jpg?raw=true)
 
-Note: This project is still in its early stages but should work.
+Note: This project is still in its early stages but should work. 
 
-## Setup
+## Set up
 
 - clone the repo
 - update `config.json` with the path to your `bash.exe` (assuming your a Windows user)
