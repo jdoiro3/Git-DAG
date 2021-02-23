@@ -5,49 +5,30 @@ class Repo {
   constructor(repo_path=null) {
     this.repo_path = repo_path;
     this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
-    this.commits = null;
-    this.refs = null;
-    this.trees = null;
+    this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
+    this.objects = {};
+    this.links = {};
   }
 
   set_repo_uri(repo_path) {
     this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
+    this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
   }
 
-  get_commit(hash) {
-    if (this.commits == null) {
-      return null;
-    } else {
-      return this.commits[hash];
-    }
+  get_commit(objectname) {
+    return this.objects[objectname];
   }
 
   get_commits() {
-    if (this.commits == null) {
-      return null;
-    } else {
-      return Object.values(this.commits);
-    }
-  }
-
-  get_trees() {
-    if (this.trees == null) {
-      return null;
-    } else {
-      return Object.values(this.trees);
-    }
+    return Object.values(this.objects).filter(obj => obj.type === "commit");
   }
 
   get_refs() {
-    if (this.refs == null) {
-      return null;
-    } else {
-      return Object.values(this.refs);
-    }
+    return Object.values(this.objects).filter(obj => obj.type === "ref");
   }
 
   get_ref_pointer(ref) {
-    ref = this.refs[ref];
+    ref = this.objects[ref];
     if (ref.name === "HEAD") {
       this.get_refs().forEach(another_ref => {
         if (another_ref.pointer === ref.pointer && another_ref.name !== "HEAD") {
@@ -58,8 +39,8 @@ class Repo {
     return ref.pointer
   }
 
-  get_parents(sha1) {
-    let commit = this.get_commit(sha1);
+  get_parents(objectname) {
+    let commit = this.get_commit(objectname);
     if (commit.parents === "") {
       return [];
     } else {
@@ -68,19 +49,35 @@ class Repo {
   }
 
 	get_dag_links() {
-		let links = []
-		for (let commit in this.commits) {
-      let parents = this.get_parents(commit);
-			parents.forEach(p => links.push({source: commit, target: p}));
-		}
-    for (let ref in this.refs) {
-      links.push({source: ref, target: this.get_ref_pointer(ref)});
+		let links = [];
+    for (let objectname in this.objects) {
+      // get the object using the objectname (hash)
+      let obj = this.objects[objectname];
+
+      if (obj.type === "commit") {
+        let parents = this.get_parents(objectname);
+			  parents.forEach(p => links.push({source: objectname, target: p}));
+      } else if (obj.type === "ref") {
+        links.push({source: objectname, target: this.get_ref_pointer(objectname)});
+      // it's either a tree or blob and it's not a root tree
+      } else if (obj.type === "tree" || obj.type === "blob") {
+        // the object is a direct child of the root tree
+        if (obj.parent === obj.id) {
+          links.push({source: obj.root_tree, target: objectname});
+        // object is a child of a child of the root tree
+        } else {
+          links.push({source: obj.parent, target: objectname});
+        }
+      // it's a root tree
+      } else {
+        links.push({source: obj.commit, target: objectname});
+      }
     }
-		return links;
+    return links;
 	}
 
   get_dag_nodes() {
-    return this.get_commits().concat(this.get_refs());
+    return Object.values(this.objects);
   }
 
   async initialize_graph_data() {
@@ -90,11 +87,12 @@ class Repo {
     // delete data that exist just to have proper json
     delete commits.empty;
     delete refs.empty;
-    for (const hash in commits) {
-      commits[hash].id = hash;
-      commits[hash].type = "commit";
-      commits[hash].color = "GoldenRod";
-      commits[hash].clicked = false;
+    for (const objectname in commits) {
+      commits[objectname].id = objectname;
+      commits[objectname].objectname = objectname;
+      commits[objectname].type = "commit";
+      commits[objectname].color = "GoldenRod";
+      commits[objectname].selected = false;
     }
     // give references more attributes
     for (const ref in refs) {
@@ -102,21 +100,39 @@ class Repo {
       refs[ref].type = "ref";
       refs[ref].color = "white"
     }
-    this.commits = commits;
-    this.refs = refs;
+    this.objects = {...commits, ...refs};
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
 
   async add_tree(commit) {
-    let tree_uri = this.repo_uri+"&commit="+commit.hash;
-    let tree = fetch(tree_uri).then(response => response.json()).catch(err => { throw err });
-    let root_tree = {type: "tree", hash: commit.tree, id: commit.tree, color: "green"};
+    let tree_uri = this.tree_uri+"&commit="+commit.hash;
+    let tree = await fetch(tree_uri).then(response => response.json()).catch(err => { throw err });
+    let root_tree = {type: "root-tree", objectname: commit.tree, id: commit.tree, color: "green", commit: commit.objectname};
     delete tree.objects.empty;
-    let tree_children = Object.values(tree.objects);
+    let tree_objects = tree.objects;
+    for (let objectname in tree_objects) {
+      let obj = tree_objects[objectname];
+      obj.root_tree = commit.tree;
+      obj.objectname = obj.hash;
+      if (obj.type === "tree") {
+        obj.color = "green";
+      }
+    }
+    tree_objects[root_tree.objectname] = root_tree;
+    this.objects = {...this.objects, ...tree_objects};
+    console.log(this.get_dag_nodes());
+    console.log(this.get_dag_links());
+    this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
 
-  remove_tree() {
-
+  remove_tree(commit) {
+    for (let objectname in this.objects) {
+      let obj = this.objects[objectname];
+      if (obj.root_tree === commit.tree || obj.objectname === commit.tree) {
+        delete this.objects[objectname];
+      }
+    }
+    this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
 
 }
@@ -128,7 +144,7 @@ function show_content(node) {
     return '<div style="'+style+'">Committer: '+node.committer+'<br>Date: '+node["committer date"]+'<br>'+node.subject+'</div>'
   } else {
     let style = "background-color:white; color:black; border-radius: 6px; padding:5px;"
-    return '<div style="'+style+'">Type: '+node.type+'<br>Hash: '+node.hash+'<br>ID: '+node.id+'</div>'
+    return '<div style="'+style+'">Type: '+node.type+'<br>Hash: '+node.objectname+'<br>Name:'+node.id+'</div>'
   }
 }
 
@@ -157,12 +173,16 @@ Graph(document.getElementById('3d-graph'))
         3000  // ms transition duration
       );
       })
-    .onNodeRightClick(node => {
-      let commit = node.hash;
-      let path = document.getElementById("path").value;
-      fetch("http://localhost:8888/cgi-bin/get_tree.py?commit="+commit+"&repo="+path)
-      .then(response => response.json())
-      .then(tree_data => Graph.graphData(repo.get_graph_data(node, tree_data)));
+    .onNodeRightClick(async function(node) {
+      if (node.selected) {
+        repo.remove_tree(node);
+        node.selected = false;
+        Graph.graphData(repo.graphData);
+      } else {
+        await repo.add_tree(node);
+        node.selected = true;
+        Graph.graphData(repo.graphData);
+      }
     })
     .nodeThreeObject(node => {
       if (node.type === "ref") {
