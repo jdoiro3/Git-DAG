@@ -2,36 +2,48 @@
 
 class Repo {
 
-  constructor(commits, refs) {
-    // delete both empty objects. These are created in the bash scripts
-    // to have valid json
-    delete commits.empty;
-    delete refs.empty;
-    // give each commit more attributes
-    for (const hash in commits) {
-      commits[hash].id = hash;
-      commits[hash].type = "commit";
-      commits[hash].color = "yellow"
-    }
-		this.commits = commits;
-    // give references more attributes
-    for (const ref in refs) {
-      refs[ref].id = ref;
-      refs[ref].type = "ref";
-    }
-    this.refs = refs;
-	}
+  constructor(repo_path=null) {
+    this.repo_path = repo_path;
+    this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
+    this.commits = null;
+    this.refs = null;
+    this.trees = null;
+  }
 
-	get_commit(hash) {
-    return this.commits[hash];
+  set_repo_uri(repo_path) {
+    this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
+  }
+
+  get_commit(hash) {
+    if (this.commits == null) {
+      return null;
+    } else {
+      return this.commits[hash];
+    }
   }
 
   get_commits() {
-    return Object.values(this.commits);
+    if (this.commits == null) {
+      return null;
+    } else {
+      return Object.values(this.commits);
+    }
+  }
+
+  get_trees() {
+    if (this.trees == null) {
+      return null;
+    } else {
+      return Object.values(this.trees);
+    }
   }
 
   get_refs() {
-    return Object.values(this.refs);
+    if (this.refs == null) {
+      return null;
+    } else {
+      return Object.values(this.refs);
+    }
   }
 
   get_ref_pointer(ref) {
@@ -55,7 +67,7 @@ class Repo {
     }
   }
 
-	get_commit_links() {
+	get_dag_links() {
 		let links = []
 		for (let commit in this.commits) {
       let parents = this.get_parents(commit);
@@ -67,34 +79,46 @@ class Repo {
 		return links;
 	}
 
-  get_graph_data(node, tree_data) {
-    if (tree_data == null && node == null) {
-       return {nodes: this.get_commits().concat(this.get_refs()), links: this.get_commit_links()};
-    } else {
-      delete tree_data.objects.empty;
-      let root_tree = {type: "tree", hash: node.tree, id: node.tree, color: "green"};
-      let tree_objects = Object.values(tree_data.objects);
-      let tree_links = [];
-      tree_objects.forEach(obj => {
-        if (obj.type === "blob") {
-          obj.color = "orange";
-        } else {
-          obj.color = "green";
-        }
-        if (obj.parent == obj.id) {
-          tree_links.push({source: root_tree, target: obj});
-        } else {
-          tree_links.push({source: obj.parent, target: obj});
-        }
-      });
-      tree_links.push({source: node, target: root_tree});
-      tree_objects.push(root_tree);
-      let commits_and_tree_objects = this.get_commits().concat(this.get_refs()).concat(tree_objects);
-      let links = this.get_commit_links().concat(tree_links);
-      console.log({nodes: commits_and_tree_objects, links: links});
-      return {nodes: commits_and_tree_objects, links: links};
-    }
+  get_dag_nodes() {
+    return this.get_commits().concat(this.get_refs());
   }
+
+  async initialize_graph_data() {
+    let data = await fetch(this.repo_uri).then(response => response.json()).catch(err => { throw err });
+    let commits = data.commits;
+    let refs = data.refs;
+    // delete data that exist just to have proper json
+    delete commits.empty;
+    delete refs.empty;
+    for (const hash in commits) {
+      commits[hash].id = hash;
+      commits[hash].type = "commit";
+      commits[hash].color = "GoldenRod";
+      commits[hash].clicked = false;
+    }
+    // give references more attributes
+    for (const ref in refs) {
+      refs[ref].id = ref;
+      refs[ref].type = "ref";
+      refs[ref].color = "white"
+    }
+    this.commits = commits;
+    this.refs = refs;
+    this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
+  }
+
+  async add_tree(commit) {
+    let tree_uri = this.repo_uri+"&commit="+commit.hash;
+    let tree = fetch(tree_uri).then(response => response.json()).catch(err => { throw err });
+    let root_tree = {type: "tree", hash: commit.tree, id: commit.tree, color: "green"};
+    delete tree.objects.empty;
+    let tree_children = Object.values(tree.objects);
+  }
+
+  remove_tree() {
+
+  }
+
 }
 
 
@@ -108,64 +132,62 @@ function show_content(node) {
   }
 }
 
-function show_dag(data) {
+let repo = new Repo();
 
-    let repo = new Repo(data.commits, data.refs);
+const Graph = ForceGraph3D()
+Graph(document.getElementById('3d-graph'))
+    .graphData({nodes: [], links: []})
+    .nodeRelSize(10)
+    .numDimensions(3)
+    .dagMode("lr")
+    .nodeLabel(show_content)
+    .dagLevelDistance(40)
+    .linkDirectionalArrowLength(5.5)
+    .linkDirectionalArrowRelPos(1)
+    .linkCurvature(0.25)
+    .linkWidth(2)
+    .onNodeClick(node => {
+      // Aim at node from outside it
+      const distance = 40;
+      const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
 
-    const Graph = ForceGraph3D()
-    (document.getElementById('3d-graph'))
-      .graphData(repo.get_graph_data())
-      .nodeRelSize(10)
-      .numDimensions(3)
-      .dagMode("lr")
-      .nodeLabel(show_content)
-      .dagLevelDistance(40)
-      .linkDirectionalArrowLength(5.5)
-      .linkDirectionalArrowRelPos(1)
-      .linkCurvature(0.25)
-      .linkWidth(2)
-      .onNodeClick(node => {
-        // Aim at node from outside it
-        const distance = 40;
-        const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-
-        Graph.cameraPosition(
-          { x: node.x * distRatio, y: node.y * distRatio, z: Graph.cameraPosition.z }, // new position
-          node, // lookAt ({ x, y, z })
-          3000  // ms transition duration
-        );
-        })
-      .onNodeRightClick(node => {
-        let commit = node.hash;
-        let path = document.getElementById("path").value;
-        fetch("http://localhost:8888/cgi-bin/get_tree.py?commit="+commit+"&repo="+path)
-        .then(response => response.json())
-        .then(tree_data => Graph.graphData(repo.get_graph_data(node, tree_data)));
+      Graph.cameraPosition(
+        { x: node.x * distRatio, y: node.y * distRatio, z: Graph.cameraPosition.z }, // new position
+        node, // lookAt ({ x, y, z })
+        3000  // ms transition duration
+      );
       })
-      .nodeThreeObject(node => {
-        if (node.type === "ref") {
-          const sprite = new SpriteText(node.id);
-          sprite.material.depthWrite = false; // make sprite background transparent
-          sprite.color = "white";
-          sprite.textHeight = 8;
-          return sprite;
-        } else {
-          return false;
-        }
-      });
-}
-
-async function get_data(repo_path) {
-  let uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
-  let data = await fetch(uri).then(request => request.json()).catch(err => { throw err });
-  show_dag(data);
-}
-
+    .onNodeRightClick(node => {
+      let commit = node.hash;
+      let path = document.getElementById("path").value;
+      fetch("http://localhost:8888/cgi-bin/get_tree.py?commit="+commit+"&repo="+path)
+      .then(response => response.json())
+      .then(tree_data => Graph.graphData(repo.get_graph_data(node, tree_data)));
+    })
+    .nodeThreeObject(node => {
+      if (node.type === "ref") {
+        const sprite = new SpriteText(node.id);
+        sprite.material.depthWrite = false; // make sprite background transparent
+        sprite.color = node.color;
+        sprite.textHeight = 8;
+        return sprite;
+      } else {
+        return false;
+      }
+    });
 
 const form = document.getElementById("form");
-form.addEventListener( "submit", function ( event ) {
+
+form.addEventListener( "submit", async function ( event ) {
   event.preventDefault();
-  let path = document.getElementById("path").value;
-  get_data(path);
+  if (event.submitter.value === "initialize") {
+    let path = document.getElementById("path").value;
+    repo.set_repo_uri(path);
+    await repo.initialize_graph_data();
+    Graph.graphData(repo.graphData);
+  } else {
+    console.log("update");
+    Graph.graphData(repo.graphData);
+  }
 });
 
