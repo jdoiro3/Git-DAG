@@ -14,4 +14,4 @@ Note: This project is still in its early stages but should work.
 
 - clone the repo
 - update `config.json` with the path to your `bash.exe` (assuming your a Windows user)
-- open a terminal, `cd` to the cloned repo directory and call `python view_dag.py` (this will start a local http server).
+- open a terminal, `cd` to the cloned repo directory, run `mkdir data` and call `python view_dag.py` (this will start a local http server).
