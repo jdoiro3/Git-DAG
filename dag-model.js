@@ -15,14 +15,6 @@ class Repo {
     this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
   }
 
-  get_commit(objectname) {
-    return this.objects[objectname];
-  }
-
-  get_commits() {
-    return Object.values(this.objects).filter(obj => obj.type === "commit");
-  }
-
   get_refs() {
     return Object.values(this.objects).filter(obj => obj.type === "ref");
   }
@@ -40,37 +32,36 @@ class Repo {
   }
 
   get_parents(objectname) {
-    let commit = this.get_commit(objectname);
-    if (commit.parents === "") {
+    let obj = this.objects[objectname];
+    if (obj.parents === "") {
       return [];
     } else {
-      return commit.parents.split(" ");
+      return obj.parents.split(" ");
     }
   }
 
 	get_dag_links() {
 		let links = [];
     for (let objectname in this.objects) {
-      // get the object using the objectname (hash)
-      let obj = this.objects[objectname];
+
+      let obj = this.objects[objectname]; // get the object using the objectname (hash)
 
       if (obj.type === "commit") {
+
         let parents = this.get_parents(objectname);
 			  parents.forEach(p => links.push({source: objectname, target: p}));
+
       } else if (obj.type === "ref") {
-        links.push({source: objectname, target: this.get_ref_pointer(objectname)});
-      // it's either a tree or blob and it's not a root tree
-      } else if (obj.type === "tree" || obj.type === "blob") {
-        // the object is a direct child of the root tree
-        if (obj.parent === obj.id) {
-          links.push({source: obj.root_tree, target: objectname});
-        // object is a child of a child of the root tree
-        } else {
-          links.push({source: obj.parent, target: objectname});
-        }
-      // it's a root tree
+
+        let ref_pointer = this.get_ref_pointer(objectname)
+        links.push({source: objectname, target: ref_pointer});
+
+      // it's either a tree, root-tree or blob and it's not a root tree
       } else {
-        links.push({source: obj.commit, target: objectname});
+        
+        let parents = this.get_parents(objectname);
+        parents.forEach(p => links.push({source: p, target: objectname}));
+
       }
     }
     return links;
@@ -89,13 +80,13 @@ class Repo {
     delete refs.empty;
     for (const objectname in commits) {
       commits[objectname].id = objectname;
-      commits[objectname].objectname = objectname;
       commits[objectname].type = "commit";
       commits[objectname].color = "GoldenRod";
       commits[objectname].selected = false;
     }
     // give references more attributes
     for (const ref in refs) {
+      refs[ref].objectname = ref;
       refs[ref].id = ref;
       refs[ref].type = "ref";
       refs[ref].color = "white"
@@ -105,30 +96,36 @@ class Repo {
   }
 
   async add_tree(commit) {
-    let tree_uri = this.tree_uri+"&commit="+commit.hash;
+    // get the tree data
+    let tree_uri = this.tree_uri+"&commit="+commit.objectname;
     let tree = await fetch(tree_uri).then(response => response.json()).catch(err => { throw err });
-    let root_tree = {type: "root-tree", objectname: commit.tree, id: commit.tree, color: "green", commit: commit.objectname};
-    delete tree.objects.empty;
-    let tree_objects = tree.objects;
+    delete tree.objects.empty; // remove unwanted data
+    let tree_objects = tree.objects; // access the tree's objects
+    let root_tree = {type: "root-tree", objectname: commit.tree, id: commit.tree, parents: commit.objectname}; // define the root tree
+    tree_objects[root_tree.objectname] = root_tree; // add the root tree to the tree's objects
     for (let objectname in tree_objects) {
       let obj = tree_objects[objectname];
-      obj.root_tree = commit.tree;
-      obj.objectname = obj.hash;
-      if (obj.type === "tree") {
+      obj.commit = commit.objectname;
+      if (obj.type === "tree" || obj.type === "root-tree") {
         obj.color = "green";
       }
+      if (obj.parents === commit.objectname && obj.type !== "root-tree") {
+        obj.parents = commit.tree;
+      }
+      if (objectname in this.objects) {
+        obj.parents = this.objects[objectname].parents+" "+obj.parents;
+      }
     }
-    tree_objects[root_tree.objectname] = root_tree;
+    // update the model
     this.objects = {...this.objects, ...tree_objects};
-    console.log(this.get_dag_nodes());
-    console.log(this.get_dag_links());
+    console.log(this.objects);
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
 
   remove_tree(commit) {
     for (let objectname in this.objects) {
       let obj = this.objects[objectname];
-      if (obj.root_tree === commit.tree || obj.objectname === commit.tree) {
+      if (obj.commit === commit.objectname) {
         delete this.objects[objectname];
       }
     }
@@ -170,15 +167,15 @@ Graph(document.getElementById('3d-graph'))
       Graph.cameraPosition(
         { x: node.x * distRatio, y: node.y * distRatio, z: Graph.cameraPosition.z }, // new position
         node, // lookAt ({ x, y, z })
-        3000  // ms transition duration
+        1000  // ms transition duration
       );
       })
     .onNodeRightClick(async function(node) {
-      if (node.selected) {
+      if (node.selected && node.type === "commit" ) {
         repo.remove_tree(node);
         node.selected = false;
         Graph.graphData(repo.graphData);
-      } else {
+      } else if (node.type === "commit") {
         await repo.add_tree(node);
         node.selected = true;
         Graph.graphData(repo.graphData);
