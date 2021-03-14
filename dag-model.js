@@ -6,13 +6,18 @@ class Repo {
     this.repo_path = repo_path;
     this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
     this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
+    this.content_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
     this.objects = {};
-    this.links = {};
+  }
+
+  reset() {
+    this.objects = {};
   }
 
   set_repo_uri(repo_path) {
     this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
     this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
+    this.content_uri = "http://localhost:8888/cgi-bin/get_content.py?repo="+repo_path;
   }
 
   get_refs() {
@@ -72,6 +77,7 @@ class Repo {
   }
 
   async initialize_graph_data() {
+    this.reset();
     let data = await fetch(this.repo_uri).then(response => response.json()).catch(err => { throw err });
     let commits = data.commits;
     let refs = data.refs;
@@ -118,7 +124,6 @@ class Repo {
     }
     // update the model
     this.objects = {...this.objects, ...tree_objects};
-    console.log(this.objects);
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
 
@@ -131,7 +136,6 @@ class Repo {
     }
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
-
 }
 
 
@@ -141,7 +145,7 @@ function show_content(node) {
     return '<div style="'+style+'">Committer: '+node.committer+'<br>Date: '+node["committer date"]+'<br>'+node.subject+'</div>'
   } else {
     let style = "background-color:white; color:black; border-radius: 6px; padding:5px;"
-    return '<div style="'+style+'">Type: '+node.type+'<br>Hash: '+node.objectname+'<br>Name:'+node.id+'</div>'
+    return '<div style="'+style+'">Type: '+node.type+'<br>Name: '+node.name+'<br>id: '+node.id+'</div>'
   }
 }
 
@@ -158,18 +162,17 @@ Graph(document.getElementById('3d-graph'))
     .linkDirectionalArrowLength(5.5)
     .linkDirectionalArrowRelPos(1)
     .linkCurvature(0.25)
-    .linkWidth(2)
+    .linkWidth(1)
     .onNodeClick(node => {
       // Aim at node from outside it
       const distance = 40;
       const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-
       Graph.cameraPosition(
         { x: node.x * distRatio, y: node.y * distRatio, z: Graph.cameraPosition.z }, // new position
         node, // lookAt ({ x, y, z })
-        1000  // ms transition duration
+        800  // ms transition duration
       );
-      })
+    })
     .onNodeRightClick(async function(node) {
       if (node.selected && node.type === "commit" ) {
         repo.remove_tree(node);
@@ -179,6 +182,8 @@ Graph(document.getElementById('3d-graph'))
         await repo.add_tree(node);
         node.selected = true;
         Graph.graphData(repo.graphData);
+      } else {
+        await window.open(repo.content_uri+"&obj="+node.id, "_blank");
       }
     })
     .nodeThreeObject(node => {
