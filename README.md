@@ -1,16 +1,18 @@
 # Git-DAG
 
-Have you ever wanted to visualize your entire Git repo? Well, now you can.
+## What is This?
 
-![](/images/dag.png?raw=true)
+At its core Git is a content addressable database. Git-DAG allows you to view this database as a 3d model.
 
-Right click a commit object to view the tree. Hovering your mouse over objects shows details about the object.
+![](docs/demo.gif)
 
-![](/images/see-tree.jpg?raw=true)
+Right clicking a commit node expands the model, displaying the tree. You can also right click references, trees and blobs, which will display the objects content (runs git cat-file).
 
-Note: This project is still in its early stages but should work. 
+![](docs/object_content.gif)
 
-## Set up
+You can also use the tool to visualize what various git commands are doing.
+
+## Setup
 
 - clone the repo
 - update `config.json` with the path to your `bash.exe` (assuming your a Windows user)
