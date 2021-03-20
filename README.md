@@ -12,6 +12,8 @@ Right clicking a commit node expands the model, displaying the tree. You can als
 
 You can also use the tool to visualize what various git commands are doing.
 
+![](docs/git_command.gif)
+
 ## Setup
 
 - clone the repo
