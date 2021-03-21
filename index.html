@@ -5,14 +5,53 @@
   <script src="//unpkg.com/three-spritetext" defer></script>
   <script src="https://d3js.org/d3.v4.min.js" defer></script>
   <script type="text/javascript" src="./dag-model.js" defer></script>
+  <style>
+      body {
+        font-family: Arial;
+      }
+
+      input[type=text] {
+        width: 30%;
+        padding: 12px 20px;
+        margin: 8px 0;
+        display: block;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+
+      button {
+        width: 10%;
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        margin: 8px 0;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+
+      div.container {
+        background-color: #f2f2f2;
+      }
+  </style>
 </head>
 
 <body>
-  <form id="form">
-    <label for="path">Enter Path to Repo:</label><br>
-    <input style="width: 300px;" type="text" id="path" name="repo_path"><br>
-    <button type="submit" value="initialize">Initialize DAG</button>
-    <button type="submit" value="update">Update DAG</button>
-  </form>
+  <div class="container">
+    <form id="form">
+      <label for="path">Enter Path to Repo:</label>
+      <input type="text" id="path" name="repo_path">
+      <label for="bash-path">Enter Path to Bash:</label>
+      <input type="text" id="bash-path" name="bash_path">
+      <button type="submit" value="initialize">Initialize DAG</button>
+      <button type="submit" value="update">Update DAG</button>
+    </form>
+  </div>
   <div id="3d-graph"></div>
+
 </body>

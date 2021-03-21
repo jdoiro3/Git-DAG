@@ -2,11 +2,11 @@
 
 class Repo {
 
-  constructor(repo_path=null) {
+  constructor(repo_path=null, bash_path=null) {
     this.repo_path = repo_path;
-    this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
-    this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
-    this.content_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
+    this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path+"&bash_path="+bash_path;
+    this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path+"&bash_path="+bash_path;
+    this.content_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path+"&bash_path="+bash_path;
     this.objects = {};
   }
 
@@ -14,10 +14,10 @@ class Repo {
     this.objects = {};
   }
 
-  set_repo_uri(repo_path) {
-    this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path;
-    this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path;
-    this.content_uri = "http://localhost:8888/cgi-bin/get_content.py?repo="+repo_path;
+  set_repo_uri(repo_path, bash_path) {
+    this.repo_uri = "http://localhost:8888/cgi-bin/get_commits.py?repo="+repo_path+"&bash_path="+bash_path;
+    this.tree_uri = "http://localhost:8888/cgi-bin/get_tree.py?repo="+repo_path+"&bash_path="+bash_path;
+    this.content_uri = "http://localhost:8888/cgi-bin/get_content.py?repo="+repo_path+"&bash_path="+bash_path;
   }
 
   get_refs() {
@@ -184,6 +184,11 @@ Graph(document.getElementById('3d-graph'))
         await window.open(repo.content_uri+"&obj="+node.id, "_blank");
       }
     })
+    .onNodeDragEnd(node => {
+          node.fx = node.x;
+          node.fy = node.y;
+          node.fz = node.z;
+        })
     .nodeThreeObject(node => {
       if (node.type === "ref") {
         const sprite = new SpriteText(node.id);
@@ -202,7 +207,8 @@ form.addEventListener( "submit", async function ( event ) {
   event.preventDefault();
   if (event.submitter.value === "initialize") {
     let path = document.getElementById("path").value;
-    repo.set_repo_uri(path);
+    let bash_path = document.getElementById("bash-path").value;
+    repo.set_repo_uri(path, bash_path);
     await repo.initialize_graph_data();
     Graph.graphData(repo.graphData);
   } else {
