@@ -1,5 +1,7 @@
 # Git-DAG
 
+Note: This project is still in its early stages.
+
 ## What is This?
 
 ![pretty-view](docs/pretty-image.png)
