@@ -38,7 +38,7 @@ class Repo {
 
   get_parents(objectname) {
     let obj = this.objects[objectname];
-    if (obj.parents === "") {
+    if (obj.parents === "" || !("parents" in obj)) {
       return [];
     } else {
       return obj.parents.split(" ");
@@ -59,12 +59,15 @@ class Repo {
       } else if (obj.type === "ref") {
 
         let ref_pointer = this.get_ref_pointer(objectname)
-        links.push({source: objectname, target: ref_pointer});
+        if (ref_pointer in this.objects) {
+          links.push({source: objectname, target: ref_pointer});
+        }
 
       // it's either a tree, root-tree or blob and it's not a root tree
       } else {
         
         let parents = this.get_parents(objectname);
+        console.log(parents);
         parents.forEach(p => links.push({source: p, target: objectname}));
 
       }
@@ -79,6 +82,7 @@ class Repo {
   async initialize_graph_data() {
     this.reset();
     let data = await fetch(this.repo_uri).then(response => response.json()).catch(err => { throw err });
+    console.log(data);
     let commits = data.commits;
     let refs = data.refs;
     // delete data that exist just to have proper json
@@ -95,7 +99,7 @@ class Repo {
       refs[ref].objectname = ref;
       refs[ref].id = ref;
       refs[ref].type = "ref";
-      refs[ref].color = "white"
+      refs[ref].color = "white";
     }
     this.objects = {...commits, ...refs};
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
@@ -111,27 +115,44 @@ class Repo {
     tree_objects[root_tree.objectname] = root_tree; // add the root tree to the tree's objects
     for (let objectname in tree_objects) {
       let obj = tree_objects[objectname];
-      obj.commit = commit.objectname;
-      if (obj.type === "tree" || obj.type === "root-tree") {
-        obj.color = "green";
-      }
-      if (obj.parents === commit.objectname && obj.type !== "root-tree") {
-        obj.parents = commit.tree;
-      }
       if (objectname in this.objects) {
-        obj.parents = this.objects[objectname].parents+" "+obj.parents;
+        this.objects[objectname].commits.push(commit.objectname);
+        if (this.objects[objectname].parents === commit.objectname && this.objects[objectname].type !== "root-tree") {
+          this.objects[objectname].parents = this.objects[objectname].parents+" "+commit.tree;
+        } else {
+          this.objects[objectname].parents = this.objects[objectname].parents+" "+root_tree.objectname;
+        }
+        console.log(this.objects[objectname]);
+      } else {
+        if (obj.type === "tree" || obj.type === "root-tree") {
+          obj.color = "green";
+        }
+        if (obj.parents === commit.objectname && obj.type !== "root-tree") {
+          obj.parents = commit.tree;
+        }
+        this.objects[objectname] = obj
+        this.objects[objectname].commits = [commit.objectname];
       }
     }
     // update the model
-    this.objects = {...this.objects, ...tree_objects};
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
   }
 
   remove_tree(commit) {
     for (let objectname in this.objects) {
       let obj = this.objects[objectname];
-      if (obj.commit === commit.objectname) {
-        delete this.objects[objectname];
+      if (obj.type !== "commit" && obj.type !== "ref") {
+        if (obj.commits.length === 1 && obj.commits[0] === commit.objectname) {
+          console.log(obj);
+          delete this.objects[objectname];
+          for (let other_objectname in this.objects) {
+            let parents = this.get_parents(other_objectname);
+            if (parents.includes(objectname)) {
+              console.log(parents);
+              this.objects[other_objectname].parents = parents.splice(parents.indexOf(objectname), 1).join();
+            }
+          }
+        }
       }
     }
     this.graphData = {nodes: this.get_dag_nodes(), links: this.get_dag_links()};
@@ -154,6 +175,10 @@ let repo = new Repo();
 const Graph = ForceGraph3D()
 Graph(document.getElementById('3d-graph'))
     .graphData({nodes: [], links: []})
+    .dagMode('lr')
+    .dagLevelDistance(40)
+    .warmupTicks(100)
+    .cooldownTicks(0)
     .nodeRelSize(10)
     .numDimensions(3)
     .nodeLabel(show_content)
@@ -161,6 +186,7 @@ Graph(document.getElementById('3d-graph'))
     .linkDirectionalArrowRelPos(1)
     .linkCurvature(0.25)
     .linkWidth(1)
+    .d3Force('collide', d3.forceCollide(Graph.nodeRelSize()+20))
     .onNodeClick(node => {
       // Aim at node from outside it
       const distance = 40;
@@ -216,4 +242,10 @@ form.addEventListener( "submit", async function ( event ) {
     Graph.graphData(repo.graphData);
   }
 });
+
+
+window.addEventListener('resize', function () {
+  Graph.width(window.innerWidth);
+  Graph.height(window.innerHeight);
+}); 
 
