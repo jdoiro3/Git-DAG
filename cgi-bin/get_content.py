@@ -3,19 +3,24 @@
 import cgi, cgitb
 import subprocess
 import json
+import pathlib
 cgitb.enable()
 
+# client provides these paths
 params = cgi.FieldStorage()
-obj = params["obj"].value
 repo_path = params["repo"].value
-path_to_bash = params["bash_path"].value
+bash_path = params["bash_path"].value
+obj = params["object"].value
 
-subprocess.run([path_to_bash, f"git_cat_file.sh", repo_path, obj],
-                 cwd=r"./bash-scripts")
+base_url = pathlib.Path(__file__).parent.absolute().parent / "data"
+output_file = str(base_url / "content.txt")
 
-with open(r"./data/content.txt", "r") as f:
-    content = f.read()
+# query git for object info needed for the graph
+subprocess.run([bash_path, "./git_cat_file.sh", repo_path, obj, output_file], cwd=r"./bash-scripts")
 
-print("Content-Type: application/json")
+with open(str(base_url / "content.txt"), "r", encoding="utf8") as f:
+	content = f.read()
+
+print("Content-Type: text/plain")
 print("")
 print(content)

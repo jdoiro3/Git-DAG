@@ -1,10 +1,9 @@
 <head>
   <style> body { margin: 0; } </style>
   <script src="https://unpkg.com/3d-force-graph/dist/3d-force-graph.min.js" defer></script>
-  <script src="//unpkg.com/three" defer></script>
-  <script src="//unpkg.com/three-spritetext" defer></script>
-  <script src="https://d3js.org/d3.v4.min.js" defer></script>
-  <script type="text/javascript" src="./dag-model.js" defer></script>
+  <script src="//unpkg.com/d3-octree" defer></script>
+  <script src="//unpkg.com/d3-force-3d" defer></script>
+  <script type="text/javascript" src="./graph.js" defer></script>
   <style>
       body {
         font-family: Arial;
@@ -12,9 +11,8 @@
 
       input[type=text] {
         width: 30%;
-        padding: 12px 20px;
-        margin: 8px 0;
-        display: block;
+        margin-left: 8px;
+        margin-bottom: 8px;
         border: 1px solid #ccc;
         border-radius: 4px;
         box-sizing: border-box;
@@ -22,32 +20,33 @@
 
       button {
         width: 10%;
-        background-color: #4CAF50;
+        background-color: black;
         color: white;
         padding: 10px 20px;
-        margin: 8px 0;
+        margin-top: 8px;
         border: none;
         border-radius: 8px;
         cursor: pointer;
       }
 
       button:hover {
-        background-color: #45a049;
+        background-color: #90EE90;
       }
 
-      div.container {
-        background-color: #f2f2f2;
-      }
   </style>
 </head>
 
 <body>
-  <div class="container">
+  <div>
     <form id="form">
-      <label for="path">Enter Path to Repo:</label>
-      <input type="text" id="path" name="repo_path">
-      <label for="bash-path">Enter Path to Bash:</label>
-      <input type="text" id="bash-path" name="bash_path">
+      <div>
+        <label for="path">Enter Path to Repo:</label>
+        <input type="text" id="path" name="repo_path">
+      </div>
+      <div>
+        <label for="bash-path">Enter Path to Bash:</label>
+        <input type="text" id="bash-path" name="bash_path">
+      </div>
       <button type="submit" value="initialize">Initialize DAG</button>
       <button type="submit" value="update">Update DAG</button>
     </form>
