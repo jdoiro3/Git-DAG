@@ -45,38 +45,32 @@ function get_graph_data(object_data) {
   return {nodes: visible_objects_array, links: links}
 }
 
-function show_content(node) {
-  let style = "background-color:white; color:black; border-radius: 6px; padding:5px;";
-  return '<div style="'+style+'">Type: '+node.value.type+'<br>objectname: '+node.id+'</div>';
-}
-
 const yCenter = {"commit": 500, "tree": 400, "blob": 300, "tag": -100};
 const Graph = ForceGraph3D()
 Graph(document.getElementById('3d-graph'))
     .graphData({nodes: [], links: []})
-    .d3Force('collide', d3.forceCollide(30))
-    .d3Force('y', d3.forceY().y(function(node) {
-      return yCenter[node.value.type];
-    }))
-    .d3Force('z', d3.forceZ().z(function(node) {
-      return 100;
-    }))
-    .d3Force("link", d3.forceLink().distance(d => 20))
-    .d3Force("link", d3.forceLink().strength(d => d.strength))
+    .d3Force('collide', d3.forceCollide(2))
     .numDimensions(3)
-    .nodeLabel(show_content)
+    .nodeLabel(node => {
+      let style = "background-color:white; color:black; border-radius: 6px; padding:5px;";
+      return '<div style="'+style+'">Type: '+node.value.type+'<br>objectname: '+node.id+'</div>';
+    })
     .linkDirectionalArrowLength(3)
     .linkDirectionalArrowRelPos(1)
     .linkCurvature(0.25)
-    .onNodeClick(node => {
-      // Aim at node from outside it
-      const distance = 40;
-      const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-      Graph.cameraPosition(
-        { x: node.x * distRatio, y: node.y * distRatio, z: Graph.cameraPosition.z }, // new position
-        node, // lookAt ({ x, y, z })
-        800  // ms transition duration
-      );
+    .onNodeClick(async (node, event) => {
+      if (event.ctrlKey || event.shiftKey || event.altKey) {
+        await window.open("/cgi-bin/get_content.py?repo="+Graph.repo_path+"&bash_path="+Graph.bash_path+"&object="+node.id, "_blank");
+      } else {
+        // Aim at node from outside it
+        const distance = 40;
+        const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+        Graph.cameraPosition(
+          { x: node.x * distRatio, y: node.y * distRatio, z: Graph.cameraPosition.z }, // new position
+          node, // lookAt ({ x, y, z })
+          800  // ms transition duration
+        );
+      }
     })
     .onNodeDragEnd(node => {
           node.fx = node.x;
@@ -107,14 +101,20 @@ const form = document.getElementById("form");
 
 form.addEventListener( "submit", async function ( event ) {
   event.preventDefault();
-  let path = document.getElementById("path").value;
+  let repo_path = document.getElementById("path").value;
   let bash_path = document.getElementById("bash-path").value;
   if (event.submitter.value === "initialize") {
-    let git_objects = await gitObjects(path, bash_path);
+    let git_objects = await gitObjects(repo_path, bash_path);
     Graph.git_objects = git_objects;
-    Graph.graphData(get_graph_data(git_objects));
+    Graph.repo_path = repo_path;
+    Graph.bash_path = bash_path;
+    Graph.graphData(get_graph_data(Graph.git_objects));
   } else {
-    let data = await getObjects(path, bash_path, "new");
+    let new_git_objects = await gitObjects(path, bash_path, "new");
+    Graph.git_objects = {...Graph.git_objects, ...new_git_objects};
+    let new_graph_data = get_graph_data(new_git_objects);
+    let { nodes, links } = Graph.graphData();
+    Graph.graphData({nodes: [...nodes, ...new_graph_data.nodes], links: [...links, ...new_graph_data.links]});
   };
 });
 
