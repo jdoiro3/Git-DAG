@@ -78,7 +78,7 @@ Graph(document.getElementById('3d-graph'))
           node.fz = node.z;
         })
     .nodeThreeObject(node => {
-      if (node.type === "ref") {
+      if (node.value.type === "ref") {
         const sprite = new SpriteText(node.id);
         sprite.material.depthWrite = false; // make sprite background transparent
         sprite.color = node.color;

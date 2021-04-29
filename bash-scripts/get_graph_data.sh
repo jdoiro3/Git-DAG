@@ -36,5 +36,19 @@ while read line
             fi
         fi 
     done < "${input_file}" >> "${output_file}";
+
+
+mapfile -t refs < <(git show-ref --heads --tags);
+for (( i=0; i<${#refs[@]}; i++ ))
+    do
+        line=( ${refs[i]} );
+        printf '"'"${line[1]}"'": {"type": "ref", "parents": "", "points_to": "'"${line[0]}"'"},\n' >> "${output_file}";
+    done
+
+cd ./.git
+head=( $(cat HEAD) );
+printf '"HEAD": {"type": "ref", "parents": "", "points_to": "'"${head[1]}"'"},\n' >> "${output_file}";
+
+
 printf '"end": "null"}' >> "${output_file}";
 
