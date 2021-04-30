@@ -110,11 +110,10 @@ form.addEventListener( "submit", async function ( event ) {
     Graph.bash_path = bash_path;
     Graph.graphData(get_graph_data(Graph.git_objects));
   } else {
-    let new_git_objects = await gitObjects(path, bash_path, "new");
+    let new_git_objects = await gitObjects(Graph.repo_path, Graph.bash_path, "new");
+    //let {nodes, links} = Graph.graphData();
     Graph.git_objects = {...Graph.git_objects, ...new_git_objects};
-    let new_graph_data = get_graph_data(new_git_objects);
-    let { nodes, links } = Graph.graphData();
-    Graph.graphData({nodes: [...nodes, ...new_graph_data.nodes], links: [...links, ...new_graph_data.links]});
+    Graph.graphData(get_graph_data(Graph.git_objects));
   };
 });
 
