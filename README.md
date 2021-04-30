@@ -12,7 +12,7 @@ You can also view an object's content by pressing `ctrl+left-click`.
 
 You can also view large projects but this will depend on the machine you are using.
 
-![](docs/view_large_projects.gif)
+![](docs/visualize_large_projects.gif)
 
 ## Setup
 
