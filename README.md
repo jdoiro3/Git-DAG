@@ -10,7 +10,7 @@ You can also view an object's content by pressing `ctrl+left-click`.
 
 ![](docs/view_objects.gif)
 
-You can also view large projects but this will depend on the machine you are using.
+You can also view large projects (the frame rate will drop the larger the project is).
 
 ![](docs/visualize_large_projects.gif)
 
