@@ -6,6 +6,14 @@ Note: This project is still in its early stages.
 
 At its core Git is a content addressable database. Git-DAG allows you to view this database as a 3d model.
 
+You can also view an object's content by pressing `ctrl+left-click`.
+
+![](docs/view_objects.gif)
+
+You can also view large projects but this will depend on the machine you are using.
+
+![](docs/view_large_projects.gif)
+
 ## Setup
 
 - `clone` the repo
