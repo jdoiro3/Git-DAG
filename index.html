@@ -1,58 +1,30 @@
 <head>
-  <style> body { margin: 0; } </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
   <script src="https://unpkg.com/3d-force-graph/dist/3d-force-graph.min.js" defer></script>
   <script src="//unpkg.com/three"></script>
   <script src="//unpkg.com/three-spritetext"></script>
   <script src="//unpkg.com/d3-octree" defer></script>
   <script src="//unpkg.com/d3-force-3d" defer></script>
   <script type="text/javascript" src="./graph.js" defer></script>
-  <style>
-      body {
-        font-family: Arial;
-      }
-
-      input[type=text] {
-        width: 30%;
-        margin-left: 8px;
-        margin-bottom: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        box-sizing: border-box;
-      }
-
-      button {
-        width: 10%;
-        background-color: black;
-        color: white;
-        padding: 10px 20px;
-        margin-top: 8px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-      }
-
-      button:hover {
-        background-color: #90EE90;
-      }
-
-  </style>
 </head>
 
 <body>
   <div>
-    <form id="form">
-      <div>
-        <label for="path">Enter Path to Repo:</label>
-        <input type="text" id="path" name="repo_path">
-      </div>
-      <div>
-        <label for="bash-path">Enter Path to Bash:</label>
-        <input type="text" id="bash-path" name="bash_path">
-      </div>
-      <button type="submit" value="initialize">Initialize DAG</button>
-      <button type="submit" value="update">Update DAG</button>
-    </form>
+    <div>
+      <form id="form">
+        <div class="mb-3">
+          <label for="path" class="form-label">Enter Path to Repo:</label>
+          <input type="text" id="path" name="repo_path" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label for="bash-path" class="form-label">Enter Path to Bash:</label>
+          <input type="text" id="bash-path" name="bash_path" class="form-control">
+        </div>
+        <button type="submit" value="initialize" class="btn btn-dark btn-lg">Initialize DAG</button>
+        <button type="submit" value="update" class="btn btn-dark btn-lg">Update DAG</button>
+      </form>
+    </div>
+    <div id="3d-graph"></div>
   </div>
-  <div id="3d-graph"></div>
-
 </body>
